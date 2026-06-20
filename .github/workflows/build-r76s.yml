@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: Optional release tag. Defaults to r76s-<run number>.
+        description: Optional release tag. Defaults to istoreos-<version>-r76s-rtl8822cs.
         required: false
         type: string
 
@@ -112,9 +112,18 @@ jobs:
           mkdir -p artifacts
           if [ -d bin/targets/rockchip/armv8 ]; then
             find bin/targets/rockchip/armv8 -maxdepth 1 -type f \
-              \( -name '*r76s*' -o -name 'sha256sums' -o -name 'profiles.json' -o -name 'config.buildinfo' -o -name 'feeds.buildinfo' -o -name 'version.buildinfo' \) \
+              \( -name '*r76s*' -o -name 'profiles.json' -o -name 'config.buildinfo' -o -name 'feeds.buildinfo' -o -name 'version.buildinfo' \) \
               -exec cp -a {} artifacts/ \;
             cp -a .config artifacts/config.seed
+            official_name="$(curl -fsSL "$OFFICIAL_R76S_URL/version.latest" | sed -n 's/^\[\(istoreos-[^]]*-r76s-squashfs\.img\.gz\)\].*/\1/p' | head -1)"
+            official_name="${official_name:-istoreos-r76s-squashfs.img.gz}"
+            firmware_name="${official_name/-r76s-squashfs.img.gz/-r76s-rtl8822cs-squashfs.img.gz}"
+            firmware_path="$(find artifacts -maxdepth 1 -type f -name '*r76s*squashfs*.img.gz' | head -1)"
+            if [ -n "$firmware_path" ]; then
+              mv "$firmware_path" "artifacts/$firmware_name"
+              echo "$firmware_name" > artifacts/firmware-name.txt
+            fi
+            (cd artifacts && rm -f sha256sums && sha256sum * > sha256sums)
           fi
 
       - name: Upload firmware
@@ -130,8 +139,10 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           INPUT_RELEASE_TAG: ${{ inputs.release_tag }}
         run: |
-          tag="${INPUT_RELEASE_TAG:-r76s-${GITHUB_RUN_NUMBER}}"
-          title="NanoPi R76S iStoreOS ${tag}"
+          firmware_name="$(cat artifacts/firmware-name.txt 2>/dev/null || echo istoreos-r76s-rtl8822cs-squashfs.img.gz)"
+          default_tag="${firmware_name%-squashfs.img.gz}"
+          tag="${INPUT_RELEASE_TAG:-$default_tag}"
+          title="$firmware_name"
           notes=$'Built from the official iStoreOS R76S package configuration with RTL8822CS Wi-Fi/BT support enabled.\n\nFirmware files are attached below.'
           if gh release view "$tag" >/dev/null 2>&1; then
             gh release upload "$tag" artifacts/* --clobber
