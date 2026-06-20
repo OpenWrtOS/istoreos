@@ -140,6 +140,14 @@ define Package/rtl8761bu-firmware/install
 endef
 $(eval $(call BuildPackage,rtl8761bu-firmware))
 
+Package/rtl8822cs-bt-firmware = $(call Package/firmware-default,RealTek RTL8822CS BT firmware)
+define Package/rtl8822cs-bt-firmware/install
+	$(INSTALL_DIR) $(1)/lib/firmware/rtl_bt
+	$(INSTALL_DATA) $(PKG_BUILD_DIR)/rtl_bt/rtl8822cs_config.bin $(1)/lib/firmware/rtl_bt
+	$(INSTALL_DATA) $(PKG_BUILD_DIR)/rtl_bt/rtl8822cs_fw.bin $(1)/lib/firmware/rtl_bt
+endef
+$(eval $(call BuildPackage,rtl8822cs-bt-firmware))
+
 Package/rtl8812a-firmware = $(call Package/firmware-default,RealTek RTL8812AU firmware)
 define Package/rtl8812a-firmware/install
 	$(INSTALL_DIR) $(1)/lib/firmware/rtw88

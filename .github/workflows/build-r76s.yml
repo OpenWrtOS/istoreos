@@ -1,0 +1,63 @@
+name: Build NanoPi R76S Firmware
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc
+          sudo docker image prune --all --force
+          df -h
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential clang flex bison g++ gawk gcc-multilib g++-multilib \
+            gettext git libelf-dev libncurses-dev libssl-dev python3 \
+            python3-distutils python3-setuptools rsync swig time unzip \
+            zlib1g-dev file wget ccache subversion
+
+      - name: Update feeds
+        run: |
+          ./scripts/feeds update -a
+          ./scripts/feeds install -a
+
+      - name: Configure NanoPi R76S
+        run: |
+          cat > .config <<'EOF'
+          CONFIG_TARGET_rockchip=y
+          CONFIG_TARGET_rockchip_armv8=y
+          CONFIG_TARGET_rockchip_armv8_DEVICE_friendlyarm_nanopi-r76s=y
+          EOF
+          make defconfig
+          grep -E 'CONFIG_TARGET_rockchip|friendlyarm_nanopi-r76s|CONFIG_PACKAGE_kmod-rtw88-8822cs|CONFIG_PACKAGE_rtl8822cs-bt-firmware|CONFIG_PACKAGE_kmod-bluetooth' .config
+
+      - name: Download sources
+        run: make download -j"$(nproc)"
+
+      - name: Build firmware
+        run: make -j"$(nproc)" V=s
+
+      - name: Prepare artifact
+        if: always()
+        run: |
+          mkdir -p artifacts
+          if [ -d bin/targets/rockchip/armv8 ]; then
+            cp -a bin/targets/rockchip/armv8 artifacts/
+          fi
+
+      - name: Upload firmware
+        uses: actions/upload-artifact@v4
+        with:
+          name: nanopi-r76s-firmware
+          path: artifacts/
+          if-no-files-found: error
