@@ -26,6 +26,23 @@ jobs:
             python3-distutils python3-pyelftools python3-setuptools rsync swig time unzip \
             zlib1g-dev file wget ccache subversion
 
+      - name: Cache downloads
+        uses: actions/cache@v4
+        with:
+          path: dl
+          key: downloads-${{ runner.os }}-${{ hashFiles('feeds.conf.default', 'package/kernel/mac80211/Makefile', 'package/firmware/linux-firmware/Makefile') }}
+          restore-keys: |
+            downloads-${{ runner.os }}-
+
+      - name: Cache ccache
+        uses: actions/cache@v4
+        with:
+          path: .ccache
+          key: ccache-${{ runner.os }}-${{ github.ref_name }}-${{ hashFiles('target/linux/rockchip/**', 'package/kernel/mac80211/**', 'package/kernel/linux/**', 'package/firmware/linux-firmware/**') }}
+          restore-keys: |
+            ccache-${{ runner.os }}-${{ github.ref_name }}-
+            ccache-${{ runner.os }}-
+
       - name: Update feeds
         run: |
           ./scripts/feeds update -a
@@ -38,15 +55,27 @@ jobs:
           CONFIG_TARGET_rockchip_armv8=y
           CONFIG_TARGET_rockchip_armv8_DEVICE_friendlyarm_nanopi-r76s=y
           CONFIG_TARGET_KERNEL_PARTSIZE=32
+          CONFIG_CCACHE=y
           EOF
           make defconfig
-          grep -E 'CONFIG_TARGET_rockchip|friendlyarm_nanopi-r76s|CONFIG_TARGET_KERNEL_PARTSIZE|CONFIG_PACKAGE_kmod-rtw88-8822cs|CONFIG_PACKAGE_rtl8822cs-bt-firmware|CONFIG_PACKAGE_kmod-bluetooth' .config
+          grep -E 'CONFIG_TARGET_rockchip|friendlyarm_nanopi-r76s|CONFIG_TARGET_KERNEL_PARTSIZE|CONFIG_CCACHE|CONFIG_PACKAGE_kmod-rtw88-8822cs|CONFIG_PACKAGE_rtl8822cs-bt-firmware|CONFIG_PACKAGE_kmod-bluetooth' .config
+
+      - name: Configure ccache
+        run: |
+          mkdir -p .ccache
+          ccache --set-config=cache_dir="$PWD/.ccache"
+          ccache --set-config=max_size=2G
+          ccache --zero-stats
 
       - name: Download sources
         run: make download -j"$(nproc)"
 
       - name: Build firmware
         run: make -j"$(nproc)" V=s
+
+      - name: Show ccache stats
+        if: always()
+        run: ccache --show-stats || true
 
       - name: Prepare artifact
         if: always()
