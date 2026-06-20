@@ -84,10 +84,11 @@ jobs:
           CONFIG_PACKAGE_kmod-rtw88-8822cs=y
           CONFIG_PACKAGE_kmod-bluetooth=y
           CONFIG_PACKAGE_rtl8822cs-bt-firmware=y
+          CONFIG_PACKAGE_taskset=y
           CONFIG_CCACHE=y
           EOF
           make defconfig
-          grep -E 'CONFIG_TARGET_rockchip|friendlyarm_nanopi-r76s|CONFIG_TARGET_MULTI_PROFILE|CONFIG_TARGET_KERNEL_PARTSIZE|CONFIG_TARGET_ROOTFS_PARTSIZE|CONFIG_CCACHE|CONFIG_PACKAGE_kmod-rtw88-8822cs|CONFIG_PACKAGE_rtl8822cs-bt-firmware|CONFIG_PACKAGE_kmod-bluetooth|CONFIG_PACKAGE_luci-app-quickstart|CONFIG_PACKAGE_dockerd' .config
+          grep -E 'CONFIG_TARGET_rockchip|friendlyarm_nanopi-r76s|CONFIG_TARGET_MULTI_PROFILE|CONFIG_TARGET_KERNEL_PARTSIZE|CONFIG_TARGET_ROOTFS_PARTSIZE|CONFIG_CCACHE|CONFIG_PACKAGE_kmod-rtw88-8822cs|CONFIG_PACKAGE_rtl8822cs-bt-firmware|CONFIG_PACKAGE_kmod-bluetooth|CONFIG_PACKAGE_taskset|CONFIG_PACKAGE_luci-app-quickstart|CONFIG_PACKAGE_dockerd' .config
 
       - name: Configure ccache
         run: |
@@ -143,7 +144,7 @@ jobs:
           default_tag="${firmware_name%-squashfs.img.gz}"
           tag="${INPUT_RELEASE_TAG:-$default_tag}"
           title="$firmware_name"
-          notes=$'Built from the official iStoreOS R76S package configuration with RTL8822CS Wi-Fi/BT support enabled.\n\nFirmware files are attached below.'
+          notes=$'Built from the official iStoreOS R76S package configuration with RTL8822CS Wi-Fi/BT support and R76S IRQ threading optimization enabled.\n\nFirmware files are attached below.'
           if gh release view "$tag" >/dev/null 2>&1; then
             gh release upload "$tag" artifacts/* --clobber
           else

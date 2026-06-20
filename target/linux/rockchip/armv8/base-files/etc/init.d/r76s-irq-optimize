@@ -1,0 +1,61 @@
+#!/bin/sh /etc/rc.common
+
+START=99
+
+. /lib/functions.sh
+
+r76s_set_performance_governor() {
+	local governor policy
+
+	for governor in /sys/devices/system/cpu/cpufreq/policy*/scaling_governor; do
+		[ -e "$governor" ] || continue
+		policy="${governor%/*}"
+		grep -qw performance "$policy/scaling_available_governors" 2>/dev/null || continue
+		echo performance > "$governor" 2>/dev/null
+	done
+}
+
+r76s_set_rps() {
+	local queue
+
+	[ -w /proc/sys/net/core/rps_sock_flow_entries ] && \
+		echo 32768 > /proc/sys/net/core/rps_sock_flow_entries 2>/dev/null
+
+	for queue in /sys/class/net/eth*/queues/rx-*; do
+		[ -d "$queue" ] || continue
+		echo fe > "$queue/rps_cpus" 2>/dev/null
+		[ -w "$queue/rps_flow_cnt" ] && echo 4096 > "$queue/rps_flow_cnt" 2>/dev/null
+	done
+}
+
+r76s_pin_irq_threads() {
+	local cpu comm name pid
+
+	command -v taskset >/dev/null 2>&1 || return 0
+
+	cpu=4
+	for comm in /proc/[0-9]*/comm; do
+		[ -r "$comm" ] || continue
+		read -r name < "$comm"
+
+		case "$name" in
+		irq/*-eth*|irq/*-enP*|irq/*-r81*)
+			pid="${comm#/proc/}"
+			pid="${pid%/comm}"
+			taskset -cp "$cpu" "$pid" >/dev/null 2>&1
+			command -v chrt >/dev/null 2>&1 && chrt -f -p 50 "$pid" >/dev/null 2>&1
+			cpu=$((cpu + 1))
+			[ "$cpu" -le 7 ] || cpu=4
+			;;
+		esac
+	done
+}
+
+start() {
+	[ "$(board_name)" = "friendlyarm,nanopi-r76s" ] || return 0
+	grep -qw threadirqs /proc/cmdline || return 0
+
+	r76s_set_performance_governor
+	r76s_set_rps
+	r76s_pin_irq_threads
+}
