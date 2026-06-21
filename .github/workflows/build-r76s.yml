@@ -68,16 +68,33 @@ jobs:
 
       - name: Use KoolCenter binary sources
         run: |
-          ddnsto_makefile="$(find package/feeds feeds -path '*/ddnsto/Makefile' | head -1)"
+          ddnsto_makefile=""
+          for candidate in \
+            package/feeds/linkease_nas/ddnsto/Makefile \
+            feeds/linkease_nas/network/services/ddnsto/Makefile
+          do
+            if [ -e "$candidate" ]; then
+              ddnsto_makefile="$candidate"
+              break
+            fi
+          done
           if [ -z "$ddnsto_makefile" ]; then
             echo "ddnsto Makefile not found"
             exit 1
           fi
-          sed -i \
-            -e "s#^PKG_SOURCE_URL:=.*#PKG_SOURCE_URL:=$KOOLCENTER_BINARY_URL/ddnsto/linux-binary/#" \
-            -e "s#^PKG_HASH:=.*#PKG_HASH:=be066e16409da44cee04607c02e2ebdb9e4a89c2b2c0de2a03981d169ed5b3df#" \
-            "$ddnsto_makefile"
-          grep -nE '^(PKG_SOURCE|PKG_SOURCE_URL|PKG_HASH):=' "$ddnsto_makefile"
+          awk -v url="$KOOLCENTER_BINARY_URL/ddnsto/linux-binary/" '
+            /^[[:space:]]*PKG_SOURCE:=.*binary-lite-/ { mode = "lite" }
+            /^[[:space:]]*PKG_SOURCE:=.*binary-\$\(PKG_SOURCE_DATE\)/ { mode = "standard" }
+            /^[[:space:]]*PKG_SOURCE_URL:=/ && mode == "standard" {
+              sub(/:=.*/, ":=" url)
+            }
+            /^[[:space:]]*PKG_HASH:=/ && mode == "standard" {
+              sub(/:=.*/, ":=be066e16409da44cee04607c02e2ebdb9e4a89c2b2c0de2a03981d169ed5b3df")
+            }
+            { print }
+          ' "$ddnsto_makefile" > "$ddnsto_makefile.tmp"
+          mv "$ddnsto_makefile.tmp" "$ddnsto_makefile"
+          grep -nE '^[[:space:]]*(PKG_SOURCE|PKG_SOURCE_URL|PKG_HASH):=' "$ddnsto_makefile" || true
 
       - name: Configure official NanoPi R76S image
         run: |
