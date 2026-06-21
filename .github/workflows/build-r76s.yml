@@ -13,6 +13,7 @@ permissions:
 
 env:
   OFFICIAL_R76S_URL: https://fw.koolcenter.com/iStoreOS/r76s
+  KOOLCENTER_BINARY_URL: https://fw.koolcenter.com/binary
 
 jobs:
   build:
@@ -65,6 +66,19 @@ jobs:
           ./scripts/feeds update -a
           ./scripts/feeds install -a
 
+      - name: Use KoolCenter binary sources
+        run: |
+          ddnsto_makefile="$(find package/feeds feeds -path '*/ddnsto/Makefile' | head -1)"
+          if [ -z "$ddnsto_makefile" ]; then
+            echo "ddnsto Makefile not found"
+            exit 1
+          fi
+          sed -i \
+            -e "s#^PKG_SOURCE_URL:=.*#PKG_SOURCE_URL:=$KOOLCENTER_BINARY_URL/ddnsto/linux-binary/#" \
+            -e "s#^PKG_HASH:=.*#PKG_HASH:=be066e16409da44cee04607c02e2ebdb9e4a89c2b2c0de2a03981d169ed5b3df#" \
+            "$ddnsto_makefile"
+          grep -nE '^(PKG_SOURCE|PKG_SOURCE_URL|PKG_HASH):=' "$ddnsto_makefile"
+
       - name: Configure official NanoPi R76S image
         run: |
           curl -fsSL "$OFFICIAL_R76S_URL/config.seed" -o .config.official
@@ -101,7 +115,13 @@ jobs:
         run: make download -j"$(nproc)"
 
       - name: Build firmware
-        run: make -j"$(nproc)" V=s
+        run: |
+          make -j"$(nproc)" V=s || {
+            echo "::group::Retry package compile with single job"
+            make package/compile -j1 V=s
+            echo "::endgroup::"
+            exit 1
+          }
 
       - name: Show ccache stats
         if: always()
