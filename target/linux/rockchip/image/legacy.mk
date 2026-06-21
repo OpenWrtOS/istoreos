@@ -206,8 +206,7 @@ define Device/friendlyarm_nanopi-r76s
 $(call Device/Legacy/rk3576,$(1))
   DEVICE_VENDOR := FriendlyARM
   DEVICE_MODEL := NanoPi R76S
-  BOOT_SCRIPT := rk3576-nanopi-r76s
-  DEVICE_PACKAGES += kmod-r8169 kmod-rtw88-8822cs kmod-bluetooth rtl8822cs-bt-firmware wpad-basic-mbedtls kmod-hwmon-pwmfan kmod-thermal taskset
+  DEVICE_PACKAGES += kmod-r8169 kmod-rtw88-8822cs kmod-bluetooth rtl8822cs-bt-firmware wpad-basic-mbedtls kmod-hwmon-pwmfan kmod-thermal
 endef
 TARGET_DEVICES += friendlyarm_nanopi-r76s
 
